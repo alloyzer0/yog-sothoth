@@ -2,6 +2,8 @@
 
 Status: draft
 
+架构约束由 [架构视图 v1](../../docs/architecture/README.md) 和 ADR-0001～0004 固定。实现若需要违反其中的不变量，必须先修订 ADR。
+
 ## 1. 目的
 
 Phase 1 验证 Yog-Sothoth 的产品边界和高性能执行骨架是否成立。完成后，同一份场景、Feature 配置和资产包应能：
@@ -366,4 +368,3 @@ Phase 1 只有同时满足以下条件才完成：
 | Neural 路径绑架架构 | Grid 与 Neural 共用 evaluator seam；Accelerated Workload 保持通用 |
 | 外部参考数据不可复现 | 固定工具版本、场景、随机种子和 provenance |
 | Vulkan 能力差异 | capability report、明确最低配置和结构化 fallback |
-
