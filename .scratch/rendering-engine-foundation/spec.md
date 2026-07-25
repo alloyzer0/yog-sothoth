@@ -31,16 +31,24 @@ Phase 1 验证 Yog-Sothoth 的产品边界和高性能执行骨架是否成立�
 ### 必须实现
 
 - Runtime、SceneTransaction、View、Output、FrameTicket 的 C ABI；
+- AssetPackage、AssetRef 与 FeatureProfile 的 Host C ABI；
 - Viewer 与 Headless CLI 两个 Host Adapter；
 - Swapchain 与 Offscreen Readback 两个 Output Adapter；
+- 仅绑定 FrameTicket 的只读 readback map/unmap；
 - Null/Validation 与 Vulkan 两个 GPU Adapter；
+- HostPumpDriver 正式实现，以及 Validation DedicatedDriver 架构 spike；
+- SceneVersion/FrameTicket 并发 release 与 Release Inbox；
 - typed Workload IR v1；
 - Graph Description、Compiled Plan、Frame Execution 分离；
 - Render Asset Package v1；
 - 最小 Scene Snapshot；
 - Direct、Irradiance Grid、Neural Irradiance、Reference/Error Feature；
 - 图导出、资源寿命、CPU/GPU timestamp 和错误诊断；
+- 绑定 FrameTicket 的 workload/timings/metrics/resources/provenance 证据查询；
+- 每帧可选的 evidence capture policy；默认不采集昂贵 trace；
 - Cornell Box 固定验证场景。
+
+SceneTransaction 的所有权规则：commit 返回 `YS_OK` 时消费 transaction；任何失败都保持 transaction 有效且内容不变，允许 Host 重试或 abort。
 
 ### 明确不实现
 
@@ -122,13 +130,20 @@ ys_result ys_frame_query(
 - Offscreen Readback Output：异步复制并在完成后读取；
 - Output 描述格式、尺寸、色彩空间和用途；
 - Feature 不能直接 present 或 readback。
+- Offscreen map 只允许 COMPLETED ticket，返回 Runtime-owned 的只读 data、size、row pitch、尺寸、格式和色彩空间；
+- 每个 ticket 只允许一个 active map，unmap 必须在 map 线程执行；
+- mapped 时 ticket 不能 release，Runtime 也不能进入 STOPPED；
+- Output destroy 后拒绝新 render，ticket 内部保留旧 revision/readback/report；
+- Runtime 不负责 PNG/视频编码或文件 I/O，这些属于 Host。
+- Win32 Swapchain 的窗口属于 Runtime control thread；Host 保持 HWND/HINSTANCE 有效并负责消息泵，surface lost 后重建 Output；
+- Runtime 负责 acquire/present，并区分 SUBOPTIMAL、OUTDATED、SURFACE_LOST；Output destroy 返回后不得再访问 native handle；
 
 ## 6. Scene Snapshot v1
 
 支持：
 
 - stable entity handle；
-- transform、mesh、material、light、camera；
+- transform、mesh、material、light；camera 由独立 View 表达；
 - packed SoA GPU 数据；
 - transaction 合并与 dirty range；
 - scene version 与 frame 引用；
@@ -184,6 +199,8 @@ Phase 1 先保证单 graphics queue 正确性。Compute pass 可以存在，但 
 - GPU timestamp；
 - validation layer 集成；
 - 设备不满足要求时输出精确 capability 差异。
+- Runtime 创建前支持 ABI、device 和 surface/output capability 查询；RuntimeDesc 选择稳定 device id；
+- device lost 使所有未终态 Frame 失败，并走异常 teardown，不等待失效 timeline 正常退休；
 
 ### Null/Validation Adapter
 
@@ -198,6 +215,22 @@ Phase 1 先保证单 graphics queue 正确性。Compute pass 可以存在，但 
 
 它不验证 shader 数值结果，但必须让大部分契约测试无需 GPU 运行。
 
+### Progress Engine 与 Driver
+
+- Runtime command intake 在 ABI 返回前把 Host 输入复制成不可变内部命令；
+- 线程无关的 Progress Engine 独占 Scene/Frame 状态迁移、执行推进和资源退休；
+- `ys_runtime_poll` 仅作为 HostPumpDriver 的推进入口；
+- ABI 冻结前实现 Validation DedicatedDriver spike；
+- HostPumpDriver 与 DedicatedDriver spike 必须通过同一套参数化 Host C ABI 契约测试；
+- DedicatedDriver spike 不要求 Vulkan 支持，也不计入首阶段对外线程模式承诺。
+- SceneVersion 和 FrameTicket release 支持任意 Host 线程；View/Output destroy 和 Runtime mutation 保持 control thread；
+- 并发 release 只消费 Host 引用，Progress Engine 负责实际回收和 timeline retirement；
+- 所有接受操作使用单调 command sequence；shutdown 建立 acceptance cutoff，Dedicated 与 HostPump 共享顺序语义；
+- handle 操作使用 operation pin，终态发布保证 readback/report/diagnostic 的跨线程可见性；
+- Runtime Host C ABI v1 不提供 `wait_shutdown`；Host 使用 shutdown、poll/get_state、STOPPED 后 destroy，SDK 可封装阻塞便利函数；
+- Runtime Host C ABI v1 不提供 `frame_wait`；帧完成使用 poll/query，未来真实跨线程消费者或 Dedicated Adapter 出现后再新增只等待、不推进的 wait interface；
+- 同步错误返回稳定结果码、结构化 caller-owned error 和可选 Host UTF-8 文本缓冲；完整诊断通过 diagnostics id 导出；
+
 ## 9. Render Asset Package v1
 
 统一包至少包含：
@@ -210,6 +243,8 @@ Phase 1 先保证单 graphics queue 正确性。Compute pass 可以存在，但 
 - capability requirements；
 - fallback asset 引用；
 - source/toolchain provenance。
+
+Host C ABI 从 immutable memory blob 加载 package；路径/VFS/archive/network 属于 Host/SDK。Runtime 在返回前不保留 Host 指针，解析和 readiness 由 Progress Engine 异步推进。
 
 运行时只读取包，不解析训练工程或 authoring shader。包不兼容时必须拒绝并说明具体字段，而不是崩溃或产生未定义画面。
 
@@ -234,6 +269,8 @@ Feature 可以拥有跨帧逻辑状态，但 GPU 资源分配、同步和销毁�
 5. `ErrorView`：输出误差热图和指标。
 
 Grid 与 Neural 是同一 Irradiance evaluator seam 上的两个真实 Adapter，不各自复制渲染管线。
+
+Host 通过 FeatureProfile 配置上述路径：每种 Feature 最多一个，Grid 与 Neural 互斥，ErrorView 要求 ReferenceImage 以及一个 evaluator。Profile 是产品配置，不暴露 Workload IR；render 捕获 Profile revision。
 
 ## 11. Neural Irradiance 实验
 
@@ -289,6 +326,9 @@ artifacts/<run-id>/
 - MSE、PSNR，SSIM 为可选；
 - fallback、Unsafe pass 和 validation warning。
 
+上述证据必须仅通过 Host C ABI 的 ticket-bound report 查询取得；Headless 不得访问 Diagnostics、Workload Compiler 或 GPU Runtime 的私有实现。
+FrameRequest 使用 capture flags 显式选择 provenance/timings/metrics/resources/workload；默认稳定帧不启用昂贵 GPU timestamp 和 trace。Runtime 在 Host copy 时生成 JSON，不要求每帧预生成文本。
+
 ## 13. 性能预算
 
 以下是 Phase 1 工程预算，不是跨硬件性能承诺。正式验收必须记录 GPU/驱动/分辨率。
@@ -303,6 +343,8 @@ artifacts/<run-id>/
 | Workload 重编译 | 普通场景/相机变化时为 0 |
 | CPU 阻塞等待 GPU | 稳定帧为 0 |
 | Validation error | 0 |
+
+`max_frames_in_flight` 只限制 QUEUED/SUBMITTED 执行槽；COMPLETED ticket、报告和 readback 分别受 retained-result/readback 预算限制，不能因 Host 保留报告而永久占用 GPU 执行槽。
 
 若开发机不满足 GPU 指标，仍可完成正确性里程碑，但不得宣称性能验收通过；必须记录硬件边界和实测结果。
 
@@ -335,14 +377,15 @@ Grid 和 Neural 路径都产生颜色反弹；Neural 在保留测试视角上的
 ## 15. 里程碑顺序
 
 1. ABI 与 Validation：Runtime、Scene、Output、FrameTicket 的契约测试；
-2. Vulkan Bootstrap：三角形经 typed Workload IR 输出到 Headless；
-3. 双 Host/双 Output：Viewer 与 CLI 复用同一 Runtime；
-4. Scene Snapshot：Cornell Box、增量 transform、稳定计划；
-5. Asset Package：离线 shader/pipeline/mesh 加载和版本验证；
-6. Grid Irradiance：建立非神经基线；
-7. Neural Irradiance：模型包、FP32/FP16 推理；
-8. Diagnostics：图、资源寿命、timestamp、误差和 CI 产物；
-9. 性能收敛：删除稳定帧分配/等待，形成 Phase 1 证据报告。
+2. Progress Driver 验证：HostPumpDriver 与 Validation DedicatedDriver spike 复用契约测试；
+3. Vulkan Bootstrap：三角形经 typed Workload IR 输出到 Headless；
+4. 双 Host/双 Output：Viewer 与 CLI 复用同一 Runtime；
+5. Scene Snapshot：Cornell Box、增量 transform、稳定计划；
+6. Asset Package：离线 shader/pipeline/mesh 加载和版本验证；
+7. Grid Irradiance：建立非神经基线；
+8. Neural Irradiance：模型包、FP32/FP16 推理；
+9. Diagnostics：图、资源寿命、timestamp、误差和 CI 产物；
+10. 性能收敛：删除稳定帧分配/等待，形成 Phase 1 证据报告。
 
 每个里程碑必须形成可运行 tracer bullet，不按“先写完整 RHI、再写完整场景、最后集成”的横向大批量方式推进。
 
