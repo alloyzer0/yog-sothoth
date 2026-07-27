@@ -3,11 +3,12 @@
 当前候选 interface：
 
 - [Runtime Host C ABI v1 设计](runtime-host-c-abi.md)
-- [Runtime Host C ABI v1 候选头文件](runtime-host-c-abi.h)
+- [Runtime Host C ABI v1 candidate baseline](../../include/yog_sothoth/runtime.h)
 - [线程模型候选与取舍](runtime-threading-models.md)
 - [Host C ABI 测试 seam](runtime-host-test-seam.md)
+- [ABI candidate 验证状态](runtime-host-abi-validation.md)
+- [Windows x64 布局基线](runtime-host-abi-layout-win64.json)
 
-Status: review required
+Status: candidate baseline
 
-这些文档是设计候选，不代表实现已经开始。Review 通过后，候选头文件将成为 Phase 1 TDD 的规范输入；所有契约测试只允许从 Host C ABI seam 观察行为。
-
+`include/yog_sothoth/runtime.h` 是唯一机器可读真源；`docs/interfaces/` 不保存第二份头文件。当前只建立 ABI 编译与布局契约，不代表 Runtime 行为已经实现。所有契约测试只允许从 Host C ABI seam 观察行为。

@@ -1,8 +1,8 @@
 # Runtime Host C ABI v1 设计
 
-Status: proposed — expert review findings addressed; re-review pending
+Status: candidate baseline
 
-Normative header draft: [runtime-host-c-abi.h](runtime-host-c-abi.h)
+Normative public header: [runtime.h](../../include/yog_sothoth/runtime.h)
 
 ## 1. 目标
 

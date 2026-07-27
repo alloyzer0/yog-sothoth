@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "abi_major": 1,
+  "platform": "windows-x86_64",
+  "pointer_size": 8,
+  "compiler_status": {
+    "mingw-gcc-14.2.0": "verified",
+    "msvc": "not-verified-toolchain-unavailable",
+    "clang-cl": "not-verified-toolchain-unavailable"
+  },
+  "structures": {
+    "ys_struct_header": {
+      "size": 24,
+      "align": 8,
+      "offsets": { "next": 16 }
+    },
+    "ys_runtime_desc": {
+      "size": 72,
+      "align": 8,
+      "offsets": { "device_id": 56 }
+    },
+    "ys_error_info": {
+      "size": 96,
+      "align": 8,
+      "offsets": { "message": 72 }
+    },
+    "ys_frame_request": {
+      "size": 80,
+      "align": 8,
+      "offsets": { "feature_profile": 48 }
+    },
+    "ys_frame_status": {
+      "size": 56,
+      "align": 8,
+      "offsets": { "submit_sequence": 48 }
+    }
+  }
+}

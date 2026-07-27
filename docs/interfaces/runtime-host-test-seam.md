@@ -4,7 +4,7 @@ Status: confirmed
 
 ## Seam
 
-Phase 1 Runtime 的契约测试仅包含并调用 [runtime-host-c-abi.h](runtime-host-c-abi.h)。测试不得链接或访问：
+Phase 1 Runtime 的契约测试仅包含并调用 [runtime.h](../../include/yog_sothoth/runtime.h)。测试不得链接或访问：
 
 - Runtime 私有 C++ 类型；
 - Scene Database 容器或引用计数；

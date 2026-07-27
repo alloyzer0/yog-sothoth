@@ -2,8 +2,8 @@
 #define YOG_SOTHOTH_RUNTIME_HOST_C_ABI_H
 
 /*
- * Yog-Sothoth Runtime Host C ABI v1 候选头文件。
- * Status: proposed — awaiting review. 当前只作为 interface 规范，不属于实现。
+ * Yog-Sothoth Runtime Host C ABI v1 candidate baseline。
+ * 本文件是 Host C ABI 的唯一机器可读真源；当前不提供 Runtime 实现。
  */
 
 #include <stdint.h>
