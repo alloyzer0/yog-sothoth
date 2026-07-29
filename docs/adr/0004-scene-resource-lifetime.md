@@ -28,7 +28,7 @@ Status: accepted for Phase 1
 - commit 实现需要在移动 transaction 命令缓冲前建立原子接受点；
 - FrameTicket、SceneVersion 与资源退休形成统一生命周期；
 - Feature 不能缓存原生 GPU handle 或自行释放 history；
-- Null/Validation Adapter 必须检测 use-after-free、非法 transient 逃逸和 external 契约错误。
+- Validation Adapter 必须检测 use-after-free、非法 transient 逃逸和 external 契约错误。
 - 契约测试必须覆盖并发 double-release、release/query 竞态以及 shutdown drain Release Inbox。
 - 契约测试必须覆盖 map/unmap 线程亲和、mapped ticket release、shutdown 与 active lease。
 - handle identity 包含 Runtime instance/type/slot/generation；ABI 操作通过 operation pin 线性化，终态发布对 query/map/report 建立可见性；

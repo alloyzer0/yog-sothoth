@@ -1,16 +1,18 @@
-# Phase 1 规格：可嵌入渲染内核与 Neural Irradiance 纵切
+# 长期能力规格：可嵌入渲染内核与 Neural Irradiance 纵切
+
+> Execution update — 2026-07-29：本文保留长期能力设计和候选技术契约；当前执行顺序与阶段完成条件以 [roadmap.md](roadmap.md) 为准，并取代本文第 15、16 节。Neural Irradiance 属于首个 Research Epoch，不再阻塞 Runtime Foundation 或第一像素纵切完成。
 
 Status: draft
 
-架构约束由 [架构视图 v1](../../docs/architecture/README.md) 和 ADR-0001～0005 固定。实现若需要违反其中的不变量，必须先修订 ADR。
+架构约束由 [架构视图 v1](../../docs/architecture/README.md) 和 ADR-0001～0006 固定。实现若需要违反其中的不变量，必须先修订 ADR。
 
 ## 1. 目的
 
-Phase 1 验证 Yog-Sothoth 的产品边界和高性能执行骨架是否成立。完成后，同一份场景、Feature 配置和资产包应能：
+本文描述的长期纵切用于验证 Yog-Sothoth 的产品边界和高性能执行骨架是否成立。完成后，同一份场景、Feature 配置和资产包应能：
 
 1. 被交互式 Viewer 和 Headless CLI 驱动；
 2. 通过稳定 C ABI 使用，不向宿主泄漏 Vulkan；
-3. 在 Null/Validation Adapter 上验证契约，在 Vulkan Adapter 上生成图像；
+3. 在 Validation Adapter 上验证契约，在 Vulkan Adapter 上生成图像；
 4. 运行 Direct、Irradiance Grid 和 Neural Irradiance 三条路径；
 5. 输出图结构、资源寿命、GPU 时间、画质误差和兼容性证据。
 
@@ -19,7 +21,7 @@ Phase 1 验证 Yog-Sothoth 的产品边界和高性能执行骨架是否成立�
 - 语言：内部 Runtime implementation 使用标准 C++23；唯一稳定外部 seam 为 C17 ABI；公共头文件必须通过 C17、C++20 和 C++23 Host 编译；
 - C++23 要求只能以 `PRIVATE` 构建策略施加；不得让 C++ 标准库类型、异常或编译器相关布局越过 Host C ABI；
 - 构建：CMake + CMake Presets；
-- 首个平台：Windows x64；保持平台层可替换，但 Phase 1 不要求 Linux 验收；
+- 首个真实 GPU 平台：Linux x86-64 + Headless Vulkan Offscreen；MinGW/Windows 保留 ABI 编译探针，Win32 Viewer/Swapchain 作为后续第二个 Host/Output Adapter；
 - GPU 后端：Vulkan 1.3；使用 dynamic rendering、Synchronization2 和 timeline semaphore；
 - Shader：Slang/HLSL 离线编译为 SPIR-V；运行时不编译生产 shader；
 - 测试：单元/契约测试加 Headless 图像回归；
@@ -36,7 +38,7 @@ Phase 1 验证 Yog-Sothoth 的产品边界和高性能执行骨架是否成立�
 - Viewer 与 Headless CLI 两个 Host Adapter；
 - Swapchain 与 Offscreen Readback 两个 Output Adapter；
 - 仅绑定 FrameTicket 的只读 readback map/unmap；
-- Null/Validation 与 Vulkan 两个 GPU Adapter；
+- Validation 与 Vulkan 两个 GPU Adapter；
 - HostPumpDriver 正式实现，以及 Validation DedicatedDriver 架构 spike；
 - SceneVersion/FrameTicket 并发 release 与 Release Inbox；
 - typed Workload IR v1；
@@ -179,7 +181,7 @@ ys_result ys_frame_query(
 - 缓存 Compiled Plan；
 - 导出 pass、资源、依赖、barrier 和寿命信息。
 
-Phase 1 先保证单 graphics queue 正确性。Compute pass 可以存在，但 async compute 排期属于 Phase 2；接口不能假设 Compute 永远与 Graphics 同队列。
+首个可用实现先保证单 graphics queue 正确性。Compute pass 可以存在，但 async compute 排期属于后续优化；接口不能假设 Compute 永远与 Graphics 同队列。
 
 ### 重新编译规则
 
@@ -203,7 +205,7 @@ Phase 1 先保证单 graphics queue 正确性。Compute pass 可以存在，但 
 - Runtime 创建前支持 ABI、device 和 surface/output capability 查询；RuntimeDesc 选择稳定 device id；
 - device lost 使所有未终态 Frame 失败，并走异常 teardown，不等待失效 timeline 正常退休；
 
-### Null/Validation Adapter
+### Validation Adapter
 
 它不是返回成功的空壳，必须验证：
 
@@ -330,20 +332,29 @@ artifacts/<run-id>/
 上述证据必须仅通过 Host C ABI 的 ticket-bound report 查询取得；Headless 不得访问 Diagnostics、Workload Compiler 或 GPU Runtime 的私有实现。
 FrameRequest 使用 capture flags 显式选择 provenance/timings/metrics/resources/workload；默认稳定帧不启用昂贵 GPU timestamp 和 trace。Runtime 在 Host copy 时生成 JSON，不要求每帧预生成文本。
 
-## 13. 性能预算
+## 13. 性能不变量与实验目标
 
-以下是 Phase 1 工程预算，不是跨硬件性能承诺。正式验收必须记录 GPU/驱动/分辨率。
+性能要求分为不依赖具体硬件的架构不变量，以及只对固定实验环境有效的数值目标。
+
+### 架构不变量
 
 | 指标 | 目标 |
 |---|---:|
 | 场景不变的稳定帧 CPU 堆分配 | 0 |
 | 稳定帧 shader/pipeline/file I/O | 0 |
-| `ys_render` CPU 提交开销 | p95 小于 0.5 ms |
-| Neural Irradiance 额外 GPU 成本 | 1080p 下 p95 小于 2.0 ms |
-| Neural 权重包 | 不超过 1 MiB |
 | Workload 重编译 | 普通场景/相机变化时为 0 |
 | CPU 阻塞等待 GPU | 稳定帧为 0 |
 | Validation error | 0 |
+
+### 实验目标
+
+以下目标不是跨硬件性能承诺。每次验收必须固定并记录硬件、驱动、分辨率、场景和 warm-up 条件。
+
+| 指标 | 目标 |
+|---|---:|
+| `ys_render` CPU 提交开销 | p95 小于 0.5 ms |
+| Neural Irradiance 额外 GPU 成本 | 1080p 下 p95 小于 2.0 ms |
+| Neural 权重包 | 不超过 1 MiB |
 
 `max_frames_in_flight` 只限制 QUEUED/SUBMITTED 执行槽；COMPLETED ticket、报告和 readback 分别受 retained-result/readback 预算限制，不能因 Host 保留报告而永久占用 GPU 执行槽。
 
@@ -357,7 +368,7 @@ Viewer 与 Headless 通过同一 C ABI 加载同一包和场景，相同相机�
 
 ### B. Validation 替换
 
-同一组 SceneTransaction 和 Workload 描述在 Null/Validation Adapter 通过；故意制造未声明写入时测试必须失败并指出 pass/resource。
+同一组 SceneTransaction 和 Workload 描述在 Validation Adapter 通过；故意制造未声明写入时测试必须失败并指出 pass/resource。
 
 ### C. 计划稳定性
 
@@ -375,7 +386,9 @@ Grid 和 Neural 路径都产生颜色反弹；Neural 在保留测试视角上的
 
 运行固定 2,000 帧基准，报告 warm-up、p50、p95、峰值显存和硬件信息；满足第 13 节预算才标记性能验收通过。
 
-## 15. 里程碑顺序
+## 15. 旧版里程碑顺序（由 roadmap.md 取代）
+
+以下列表只保留历史设计上下文，不再决定当前实现顺序。
 
 1. ABI 与 Validation：Runtime、Scene、Output、FrameTicket 的契约测试；
 2. Progress Driver 验证：HostPumpDriver 与 Validation DedicatedDriver spike 复用契约测试；
@@ -386,13 +399,13 @@ Grid 和 Neural 路径都产生颜色反弹；Neural 在保留测试视角上的
 7. Grid Irradiance：建立非神经基线；
 8. Neural Irradiance：模型包、FP32/FP16 推理；
 9. Diagnostics：图、资源寿命、timestamp、误差和 CI 产物；
-10. 性能收敛：删除稳定帧分配/等待，形成 Phase 1 证据报告。
+10. 性能收敛：删除稳定帧分配/等待，形成旧版 Phase 1 证据报告。
 
 每个里程碑必须形成可运行 tracer bullet，不按“先写完整 RHI、再写完整场景、最后集成”的横向大批量方式推进。
 
-## 16. 完成定义
+## 16. 旧版完成定义（由 roadmap.md 取代）
 
-Phase 1 只有同时满足以下条件才完成：
+以下条件是旧版 Phase 1 的完成定义，不再阻塞当前 Epoch 或 slice 完成：
 
 - 两个 Host、两个 Output、两个 GPU Adapter 均通过契约；
 - Cornell Box 的 Grid/Neural/Reference/Error 可由 Viewer 和 Headless 运行；
@@ -400,13 +413,13 @@ Phase 1 只有同时满足以下条件才完成：
 - 输出完整、可重复的证据包；
 - 公共 C ABI 未泄漏 Vulkan 和训练框架类型；
 - 性能结果明确区分“达到预算”和“受硬件限制未验收”；
-- 已记录 Phase 2 所需 ADR 和未解决风险，不以 TODO 代替接口约束。
+- 已记录后续阶段所需 ADR 和未解决风险，不以 TODO 代替接口约束。
 
 ## 17. 主要风险
 
 | 风险 | 控制方式 |
 |---|---|
-| 首阶段基础设施过重 | 每个里程碑保持端到端 tracer bullet；不提前实现 Phase 2 优化 |
+| 首阶段基础设施过重 | 每个里程碑保持端到端 tracer bullet；不提前实现后续优化 |
 | Workload IR 过度抽象 | 只覆盖五个首阶段 Feature；新能力用真实需求扩展 |
 | C ABI 限制内部设计 | ABI 只表达宿主操作，不暴露 Feature/GPU 内部对象 |
 | Neural 路径绑架架构 | Grid 与 Neural 共用 evaluator seam；Accelerated Workload 保持通用 |

@@ -667,9 +667,7 @@ YS_API ys_result YS_CALL ys_runtime_shutdown(
     ys_shutdown_mode mode,
     ys_error_info* error);
 
-YS_API ys_result YS_CALL ys_runtime_destroy(
-    ys_runtime* runtime,
-    ys_error_info* error);
+YS_API ys_result YS_CALL ys_runtime_destroy(ys_runtime* runtime, ys_error_info* error);
 
 /* 离线 Render Asset Package；加载发生在稳定帧之外。 */
 YS_API ys_result YS_CALL ys_asset_package_load(
@@ -759,10 +757,7 @@ YS_API ys_result YS_CALL ys_view_update(
     const ys_view_desc* desc,
     ys_error_info* error);
 
-YS_API ys_result YS_CALL ys_view_destroy(
-    ys_runtime* runtime,
-    ys_view view,
-    ys_error_info* error);
+YS_API ys_result YS_CALL ys_view_destroy(ys_runtime* runtime, ys_view view, ys_error_info* error);
 
 /* Output 与 Host 分离；平台信息只允许出现在版本化 next 扩展中。 */
 YS_API ys_result YS_CALL ys_output_create(

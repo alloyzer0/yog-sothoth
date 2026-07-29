@@ -97,7 +97,7 @@ GPU & Accelerated Runtime
 
 - Host：Viewer 与 Headless；
 - Output：Swapchain 与 Offscreen Readback；
-- GPU：Vulkan 与 Null/Validation；
+- GPU：Vulkan 与 Validation；
 - Irradiance：Grid 与 Neural。
 
 ## 6. 需要 ADR 锁定的决策
@@ -117,4 +117,3 @@ GPU & Accelerated Runtime
 - 每个 Feature 自带 descriptor、同步、模型加载和指标体系；
 - 稳定帧中编译 shader、创建 pipeline、访问文件或等待 GPU；
 - 只有截图，没有 reference、指标、编译计划和硬件证据。
-

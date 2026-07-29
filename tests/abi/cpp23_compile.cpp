@@ -10,7 +10,8 @@ static_assert(
     YS_HOST_CPLUSPLUS > 202002L,
     "This Host compatibility probe must compile in standard C++23 mode.");
 
-int main() {
+int main()
+{
     const ys_runtime_desc runtime_desc = YS_RUNTIME_DESC_INIT;
     const ys_output_desc output_desc = YS_OUTPUT_DESC_INIT;
 

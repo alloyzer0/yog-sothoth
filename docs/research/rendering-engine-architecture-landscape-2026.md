@@ -113,12 +113,12 @@ WebGPU 的 bind group、pipeline layout、command encoder/pass encoder 和严格
 4. Render Scene 采用 snapshot + transaction + stable handle + SoA + dirty range，并预留分页资产、GPU feedback 和 residency。
 5. history/cache/external resource 是显式生命周期类别，不伪装成 transient texture。
 6. 建立统一 Offline Package Compiler；shader/pipeline/material/geometry/neural model 共用 manifest、版本、capability 与 fallback 机制。
-7. 建立 Null/Validation Runtime，在无 GPU CI 中验证图、资源寿命、ABI、package 和 Feature manifest。
+7. 建立 Validation Runtime，在无 GPU CI 中验证图、资源寿命、ABI、package 和 Feature manifest。
 8. Python 只做实验配置、批处理和指标读取，不进入逐 draw/逐像素热路径。
 
 ### 首阶段应实现
 
-- Vulkan backend + Null/Validation backend；
+- Vulkan backend + Validation backend；
 - 小型 C ABI：Runtime、SceneTransaction、View、Output、FrameTicket；
 - typed Workload IR v1：Raster、Compute、Copy、External/Unsafe（显式标债）；
 - 单队列正确性后，再增加 async compute；timeline retirement 和 deferred destruction 从一开始存在；

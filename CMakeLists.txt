@@ -4,6 +4,9 @@ project(yog_sothoth VERSION 0.1.0 LANGUAGES C CXX)
 
 include(CTest)
 include(cmake/YogSothothBuildPolicy.cmake)
+include(cmake/YogSothothFormatting.cmake)
+
+ys_add_clang_format_targets()
 
 add_library(yog_sothoth_runtime_headers INTERFACE)
 target_include_directories(

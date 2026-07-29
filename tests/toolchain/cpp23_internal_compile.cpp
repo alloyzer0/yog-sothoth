@@ -8,6 +8,7 @@ static_assert(
     YS_INTERNAL_CPLUSPLUS > 202002L,
     "Yog-Sothoth internal implementation requires standard C++23 mode.");
 
-int main() {
+int main()
+{
     return 0;
 }

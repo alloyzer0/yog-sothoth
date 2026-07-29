@@ -16,6 +16,7 @@ Yog-Sothoth 需要被 Viewer、Headless CLI、未来游戏/编辑器和语言 SD
 - Phase 1 的外部调用串行进入 Runtime；内部可使用工作/提交线程；
 - Runtime 不从未声明线程调用 Host 回调；完成通知优先使用轮询 ticket。
 - Phase 1 的正式 Progress Driver 为 Host-pumped；Runtime command intake、Runtime Reactor 和 Progress Driver 必须分离；
+- Host ABI v1 在 Validation/Vulkan Adapter、HostPump/DedicatedDriver 和关键对象生命周期经过真实实现验证前保持 candidate，不承诺向后兼容；冻结前允许伴随契约、layout 基线和 ADR 一起进行破坏性修订。
 - Host ABI v1 冻结前，用 Validation Adapter 的最小 DedicatedDriver spike 复用同一套 Host ABI 契约测试，验证未来内部线程模式不会改动外部 interface 和核心状态机。
 - SceneVersion 与 FrameTicket 的 Host 引用可从任意 Host 线程释放；其他 mutation/destroy 保持 control/owner thread；
 - 跨线程 release 进入并发 Release Inbox，实际回收和 GPU retirement 仍由 Runtime Reactor 串行执行。

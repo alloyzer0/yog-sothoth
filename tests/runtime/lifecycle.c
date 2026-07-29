@@ -3,7 +3,8 @@
 
 #include <yog_sothoth/runtime.h>
 
-static int ys_test_check(int condition, const char* message) {
+static int ys_test_check(int condition, const char* message)
+{
     if (condition) {
         return 1;
     }
@@ -12,7 +13,8 @@ static int ys_test_check(int condition, const char* message) {
     return 0;
 }
 
-int main(void) {
+int main(void)
+{
     ys_runtime_desc runtime_desc = YS_RUNTIME_DESC_INIT;
     ys_runtime* runtime = NULL;
     ys_runtime_state state = 0;
