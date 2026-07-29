@@ -2,7 +2,7 @@
 
 Status: draft
 
-架构约束由 [架构视图 v1](../../docs/architecture/README.md) 和 ADR-0001～0004 固定。实现若需要违反其中的不变量，必须先修订 ADR。
+架构约束由 [架构视图 v1](../../docs/architecture/README.md) 和 ADR-0001～0005 固定。实现若需要违反其中的不变量，必须先修订 ADR。
 
 ## 1. 目的
 
@@ -16,7 +16,8 @@ Phase 1 验证 Yog-Sothoth 的产品边界和高性能执行骨架是否成立�
 
 ## 2. 技术基线
 
-- 语言：C++20；公共接口为 C17 ABI；
+- 语言：内部 Runtime implementation 使用标准 C++23；唯一稳定外部 seam 为 C17 ABI；公共头文件必须通过 C17、C++20 和 C++23 Host 编译；
+- C++23 要求只能以 `PRIVATE` 构建策略施加；不得让 C++ 标准库类型、异常或编译器相关布局越过 Host C ABI；
 - 构建：CMake + CMake Presets；
 - 首个平台：Windows x64；保持平台层可替换，但 Phase 1 不要求 Linux 验收；
 - GPU 后端：Vulkan 1.3；使用 dynamic rendering、Synchronization2 和 timeline semaphore；
@@ -215,16 +216,16 @@ Phase 1 先保证单 graphics queue 正确性。Compute pass 可以存在，但 
 
 它不验证 shader 数值结果，但必须让大部分契约测试无需 GPU 运行。
 
-### Progress Engine 与 Driver
+### Runtime Reactor 与 Driver
 
 - Runtime command intake 在 ABI 返回前把 Host 输入复制成不可变内部命令；
-- 线程无关的 Progress Engine 独占 Scene/Frame 状态迁移、执行推进和资源退休；
+- 线程无关的 Runtime Reactor 独占 Scene/Frame 状态迁移、执行推进和资源退休；
 - `ys_runtime_poll` 仅作为 HostPumpDriver 的推进入口；
 - ABI 冻结前实现 Validation DedicatedDriver spike；
 - HostPumpDriver 与 DedicatedDriver spike 必须通过同一套参数化 Host C ABI 契约测试；
 - DedicatedDriver spike 不要求 Vulkan 支持，也不计入首阶段对外线程模式承诺。
 - SceneVersion 和 FrameTicket release 支持任意 Host 线程；View/Output destroy 和 Runtime mutation 保持 control thread；
-- 并发 release 只消费 Host 引用，Progress Engine 负责实际回收和 timeline retirement；
+- 并发 release 只消费 Host 引用，Runtime Reactor 负责实际回收和 timeline retirement；
 - 所有接受操作使用单调 command sequence；shutdown 建立 acceptance cutoff，Dedicated 与 HostPump 共享顺序语义；
 - handle 操作使用 operation pin，终态发布保证 readback/report/diagnostic 的跨线程可见性；
 - Runtime Host C ABI v1 不提供 `wait_shutdown`；Host 使用 shutdown、poll/get_state、STOPPED 后 destroy，SDK 可封装阻塞便利函数；
@@ -244,7 +245,7 @@ Phase 1 先保证单 graphics queue 正确性。Compute pass 可以存在，但 
 - fallback asset 引用；
 - source/toolchain provenance。
 
-Host C ABI 从 immutable memory blob 加载 package；路径/VFS/archive/network 属于 Host/SDK。Runtime 在返回前不保留 Host 指针，解析和 readiness 由 Progress Engine 异步推进。
+Host C ABI 从 immutable memory blob 加载 package；路径/VFS/archive/network 属于 Host/SDK。Runtime 在返回前不保留 Host 指针，解析和 readiness 由 Runtime Reactor 异步推进。
 
 运行时只读取包，不解析训练工程或 authoring shader。包不兼容时必须拒绝并说明具体字段，而不是崩溃或产生未定义画面。
 

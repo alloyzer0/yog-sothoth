@@ -1,11 +1,3 @@
-function(ys_enable_strict_warnings target)
-    if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /WX)
-    else()
-        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    endif()
-endfunction()
-
 add_executable(abi_c17_compile c17_compile.c)
 target_link_libraries(abi_c17_compile PRIVATE yog_sothoth_runtime_headers)
 target_compile_features(abi_c17_compile PRIVATE c_std_17)
@@ -21,6 +13,14 @@ set_target_properties(abi_cpp20_compile PROPERTIES CXX_EXTENSIONS OFF)
 target_compile_definitions(abi_cpp20_compile PRIVATE YS_STATIC)
 ys_enable_strict_warnings(abi_cpp20_compile)
 add_test(NAME abi.cpp20.compile COMMAND abi_cpp20_compile)
+
+add_executable(abi_cpp23_compile cpp23_compile.cpp)
+target_link_libraries(abi_cpp23_compile PRIVATE yog_sothoth_runtime_headers)
+target_compile_features(abi_cpp23_compile PRIVATE cxx_std_23)
+set_target_properties(abi_cpp23_compile PROPERTIES CXX_EXTENSIONS OFF)
+target_compile_definitions(abi_cpp23_compile PRIVATE YS_STATIC)
+ys_enable_strict_warnings(abi_cpp23_compile)
+add_test(NAME abi.cpp23.compile COMMAND abi_cpp23_compile)
 
 # 三条路径只做编译，不引用未实现的 Runtime 符号。
 foreach(mode IN ITEMS static build_dll import)

@@ -15,6 +15,7 @@
 - [ADR-0002：Feature Contract 与 Workload IR](../adr/0002-feature-workload-contract.md)
 - [ADR-0003：统一 Render Asset Package](../adr/0003-render-asset-package.md)
 - [ADR-0004：Scene Snapshot 与资源生命周期](../adr/0004-scene-resource-lifetime.md)
+- [ADR-0005：内部 C++23 语言基线与 C ABI 隔离](../adr/0005-internal-cpp23-language-baseline.md)
 
 ## 架构不变量
 
@@ -25,8 +26,8 @@
 5. Output 独立于 Host；窗口不是唯一输出方式。
 6. Runtime 只加载离线编译、版本化且可验证的 Render Asset Package。
 7. Null/Validation 与 Vulkan 是 GPU seam 上的两个真实 Adapter。
+8. 内部 C++23 implementation 不得把语言、标准库或异常要求传播到 C17 Host ABI。
 
 ## 与 Phase 1 的关系
 
 Phase 1 规格位于 [spec.md](../../.scratch/rendering-engine-foundation/spec.md)。如果实现需要违反本页不变量，必须先新增或修订 ADR，不能仅修改图或代码。
-

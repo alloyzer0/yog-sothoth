@@ -11,8 +11,8 @@ Status: accepted for Phase 1
 - 线程模型在 Runtime 创建后不可切换；
 - query 不隐式推进工作；
 - 不从任意内部线程调用 Host callback。
-- SceneVersion/FrameTicket release 可从任意 Host 线程进入 Release Inbox；实际引用回收和资源退休仍由 Progress Engine 串行处理。
-- v1 不提供 frame wait；未来新增时必须只观察/等待，不得隐式推进 Progress Engine。
+- SceneVersion/FrameTicket release 可从任意 Host 线程进入 Release Inbox；实际引用回收和资源退休仍由 Runtime Reactor 串行处理。
+- v1 不提供 frame wait；未来新增时必须只观察/等待，不得隐式推进 Runtime Reactor。
 
 ## A. Host-pumped 单控制线程
 
@@ -33,7 +33,7 @@ Host 在 control thread 串行 mutation、render、poll 和 shutdown。Runtime �
 
 Phase 1 推荐并承诺实现此模型。
 
-该选择附带架构验证条件：HostPumpDriver 必须与线程无关的 Progress Engine 分离；在 Host ABI v1 冻结前，使用 Validation Adapter 实现最小 DedicatedDriver spike，并复用同一套契约测试。验证目标是证明增加内部推进线程无需修改 Host C ABI、SceneVersion、FrameTicket、shutdown 和资源所有权语义。
+该选择附带架构验证条件：HostPumpDriver 必须与线程无关的 Runtime Reactor 分离；在 Host ABI v1 冻结前，使用 Validation Adapter 实现最小 DedicatedDriver spike，并复用同一套契约测试。验证目标是证明增加内部推进线程无需修改 Host C ABI、SceneVersion、FrameTicket、shutdown 和资源所有权语义。
 
 ## B. Dedicated Runtime threads
 
@@ -105,10 +105,10 @@ ABI 的 `threading_model` 和 capability table 允许未来加入 B/C，但未�
 ```text
 Runtime Command Intake
         ↓
-Progress Engine.advance(budget)
+Runtime Reactor.advance(budget)
         ↑
         ├─ HostPumpDriver（Phase 1 正式功能）
         └─ DedicatedDriver（Validation 架构 spike）
 ```
 
-Scene commit、FrameTicket 状态机、Compiled Plan 推进、完成发布、资源退休和 shutdown 状态机必须属于线程模型无关的 Progress Engine。Driver 只决定何时调用 `advance`，不得定义另一套对象或状态语义。
+Scene commit、FrameTicket 状态机、Compiled Plan 推进、完成发布、资源退休和 shutdown 状态机必须属于线程模型无关的 Runtime Reactor。Driver 只决定何时调用 `advance`，不得定义另一套对象或状态语义。

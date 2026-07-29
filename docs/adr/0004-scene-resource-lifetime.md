@@ -15,7 +15,7 @@ Status: accepted for Phase 1
 - GPU 资源分为 transient、persistent、history、external、readback；
 - transient 句柄不能逃逸逻辑帧；history 由 Runtime 轮换；external 使用显式 acquire/release 契约；
 - 资源删除采用 timeline retirement 和 deferred destruction；
-- SceneVersion/FrameTicket 的 Host 引用允许任意线程 release；release 进入并发 inbox，Progress Engine 统一处理内部引用和实际退休；
+- SceneVersion/FrameTicket 的 Host 引用允许任意线程 release；release 进入并发 inbox，Runtime Reactor 统一处理内部引用和实际退休；
 - Offscreen readback 仅绑定 FrameTicket；active lease 保留 ticket 内部 readback 资源并阻止 ticket retirement；
 - Output destroy 后旧 revision 由在途 FrameTicket 内部保留，Host handle 与报告/readback 生命周期解耦；
 - Transaction write、FeatureProfile 和 Frame 会对引用的 AssetPackage 取得内部引用；Host package release 不破坏这些对象；

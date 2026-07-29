@@ -143,7 +143,7 @@ Runtime
 
 - `scene_version_release` 与 `frame_release` 可从任意 Host 线程调用；
 - 恰好一个并发 release 成功，重复 release 返回 `YS_ERROR_INVALID_HANDLE`；
-- release 只消费 Host 引用，不直接销毁 GPU 资源；Runtime 通过并发 Release Inbox 将实际回收交给 Progress Engine；
+- release 只消费 Host 引用，不直接销毁 GPU 资源；Runtime 通过并发 Release Inbox 将实际回收交给 Runtime Reactor；
 - Phase 1 可使用简单 mutex queue，不要求无锁实现；
 - View/Output destroy、Transaction 操作、render、poll、shutdown 和 destroy 仍遵循 control/owner thread；
 - Runtime destroy 前，Host 必须停止并 join 自己的调用线程，确保没有在执行的 ABI 调用。
@@ -162,7 +162,7 @@ Runtime
 
 v1 不提供 `ys_frame_wait`。Host-pumped 的 control thread 必须使用 `poll + frame_query`，避免阻塞后无人推进 Runtime。真实跨线程帧消费者或 Dedicated Adapter 出现后，可以向 ABI 新增 wait interface，但必须遵守：
 
-- wait 只等待已发布状态，绝不隐式 poll 或推进 Progress Engine；
+- wait 只等待已发布状态，绝不隐式 poll 或推进 Runtime Reactor；
 - Host-pumped 的 control thread 不得对未完成 ticket 阻塞等待；
 - timeout 不消费 ticket；
 - active waiter 阻止 ticket release；
@@ -172,7 +172,7 @@ v1 不提供 `ys_frame_wait`。Host-pumped 的 control thread 必须使用 `poll
 
 - `asset_package_load` 返回 Host 引用；SceneTransaction write、FeatureProfile create/update 和已接受 Frame 会取得所需 package 的内部引用；
 - Transaction 写入成功后 Host 可以 release package，transaction 仍保持其资产引用直到 abort、commit 失败后由 Host abort，或 commit 成功转移给 SceneVersion；
-- package release 只消费 Host 引用，不破坏 Transaction、SceneVersion、Profile 或在途 Frame；最后一个内部引用消失后由 Progress Engine 退休；
+- package release 只消费 Host 引用，不破坏 Transaction、SceneVersion、Profile 或在途 Frame；最后一个内部引用消失后由 Runtime Reactor 退休；
 - FeatureProfile update 产生新 revision，render 接受时捕获 revision；destroy 拒绝新 render，但不破坏已接受 Frame；
 - package/profile release/destroy 在 control thread 调用；stale、wrong type 和 cross-runtime handle 均返回 INVALID_HANDLE。
 - Transaction/Profile 可以捕获 QUEUED package；render 接受请求并建立 readiness 依赖，Frame 保持 QUEUED 且占 execution capacity；
@@ -291,7 +291,7 @@ View 使用显式 viewport rect；v1 不做隐式缩放或 letterbox，rect 必�
 
 ### 9.1 Asset Package 与 Feature Profile
 
-`ys_asset_package_load` 从 Host-owned immutable blob 接受版本化 Render Asset Package；Runtime 在返回前复制/接管内部表示，不保留 Host 指针。路径、VFS、archive、网络和 memory mapping 属于 SDK/Host。load 返回 QUEUED package，解析/验证/GPU readiness 由 Progress Engine 推进，并通过 `asset_package_query` 返回 READY/FAILED。SceneCommand 和 FeatureConfig 以 `package + asset_id` 引用资产；package 有 Host 引用和内部引用。
+`ys_asset_package_load` 从 Host-owned immutable blob 接受版本化 Render Asset Package；Runtime 在返回前复制/接管内部表示，不保留 Host 指针。路径、VFS、archive、网络和 memory mapping 属于 SDK/Host。load 返回 QUEUED package，解析/验证/GPU readiness 由 Runtime Reactor 推进，并通过 `asset_package_query` 返回 READY/FAILED。SceneCommand 和 FeatureConfig 以 `package + asset_id` 引用资产；package 有 Host 引用和内部引用。
 
 Host 通过 `ys_feature_profile_create/update/destroy` 配置 Direct、Grid、Neural、Reference 和 Error View。Profile 是 Host 配置 seam，不是 Workload IR；render 接受请求时捕获 profile revision。Feature 拓扑变化可以触发 Compiled Plan 重编译，参数值变化不得触发。
 
@@ -347,21 +347,21 @@ Swapchain 结果矩阵：
 YS_THREADING_HOST_PUMPED
 ```
 
-已接受的附加约束：Host-pumped 只是正式 Progress Driver，不是 Runtime 核心实现模型。内部必须将 ABI command intake、线程无关的 Progress Engine 和 Progress Driver 分离：
+已接受的附加约束：Host-pumped 只是正式 Progress Driver，不是 Runtime 核心实现模型。内部必须将 ABI command intake、线程无关的 Runtime Reactor 和 Progress Driver 分离：
 
 ```text
 Host C ABI
     ↓ immutable commands
 Runtime Command Intake
     ↓
-Progress Engine
+Runtime Reactor
     ↑
 Progress Driver
     ├─ HostPumpDriver
     └─ Validation DedicatedDriver spike
 ```
 
-`ys_runtime_poll` 只是 HostPumpDriver 调用 `ProgressEngine::advance(budget)` 的入口。状态迁移、工作负载推进和资源退休不得散落在 `poll`、`query` 或其他 ABI 函数中。ABI 冻结前必须用 Validation Adapter 实现最小 DedicatedDriver spike，并让两个 Driver 通过同一套 Host C ABI 契约测试；DedicatedDriver spike 不等于 Phase 1 对外承诺 Vulkan Dedicated 模式。
+`ys_runtime_poll` 只是 HostPumpDriver 调用 `RuntimeReactor::advance(budget)` 的入口。状态迁移、工作负载推进和资源退休不得散落在 `poll`、`query` 或其他 ABI 函数中。ABI 冻结前必须用 Validation Adapter 实现最小 DedicatedDriver spike，并让两个 Driver 通过同一套 Host C ABI 契约测试；DedicatedDriver spike 不等于 Phase 1 对外承诺 Vulkan Dedicated 模式。
 
 规则：
 
@@ -369,7 +369,7 @@ Progress Driver
 - create/package/profile/begin/write/abort/commit/view/output mutation/render/poll/shutdown/destroy 在 control thread 串行调用；
 - transaction 只能由创建它的线程访问；
 - frame query、runtime state query、diagnostic query/copy 可从任意 Host 线程并发调用；
-- SceneVersion 和 FrameTicket release 允许任意 Host 线程，通过 Release Inbox 延迟交给 Progress Engine；
+- SceneVersion 和 FrameTicket release 允许任意 Host 线程，通过 Release Inbox 延迟交给 Runtime Reactor；
 - View/Output destroy 和其他 mutation 保持 control thread；
 - ABI 不提供任意内部线程 callback；未来回调只能由 Host 主动 dispatch。
 - v1 不提供阻塞式 frame wait；Host 使用 poll/query，未来真实异步消费者出现后再增加只等待、不推进的 interface。

@@ -4,7 +4,7 @@ Status: confirmed
 
 ## Seam
 
-Phase 1 Runtime 的契约测试仅包含并调用 [runtime.h](../../include/yog_sothoth/runtime.h)。测试不得链接或访问：
+Phase 1 Runtime 的行为契约测试仅包含并调用 [runtime.h](../../include/yog_sothoth/runtime.h)。独立的工具链契约可以观察编译语言模式，但不得链接 Runtime 行为或访问私有类型。测试不得链接或访问：
 
 - Runtime 私有 C++ 类型；
 - Scene Database 容器或引用计数；
@@ -19,7 +19,8 @@ Phase 1 Runtime 的契约测试仅包含并调用 [runtime.h](../../include/yog_
 
 ### ABI
 
-- 公共头文件可由纯 C17 translation unit 独立编译；
+- 公共头文件可由纯 C17、C++20 和 C++23 translation unit 独立编译；
+- 内部工具链契约确认 implementation target 至少进入标准 C++23 模式，且该要求不传播到 C++20 Host；
 - 不依赖 C++、Vulkan、窗口库或训练框架；
 - 短结构、长结构、未知/重复扩展链产生确定结果；
 - 每个扩展由 structure_type 唯一识别，错误类型或环链被拒绝；
